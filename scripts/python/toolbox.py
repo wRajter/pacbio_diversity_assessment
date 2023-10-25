@@ -29,3 +29,14 @@ def check_if_exist(path):
         else:
             print("Please specify 'y' or 'n'")
             return False
+
+def num_seqs(alignment_path):
+    '''
+    Returns number sequences from FASTA file that is provide as an input (alignment_path)
+    '''
+    with open(alignment_path, 'r') as infile:
+        count_ = 0
+        for line in infile:
+            if line.startswith('>'):
+                count_ += 1
+    return count_
