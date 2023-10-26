@@ -7,6 +7,7 @@ import subprocess
 from Bio import AlignIO
 import pandas as pd
 import shutil
+from toolbox import num_seqs
 
 # Global variables
 GBLOCKS_PATH = os.path.join('..', 'raw_data', 'packages', 'Gblocks_0.91b', 'Gblocks')
@@ -337,3 +338,114 @@ def move_search_grid_files(directory_path, grid_search_path):
         if file.endswith('.html'):
             file_path = os.path.join(grid_search_path, file)
             os.remove(file_path)
+
+
+
+def transform_taxonomy(taxonomy):
+    '''
+    Transform a given taxonomy string to a desired format.
+
+    Parameters:
+    - taxonomy (str): A string representing taxonomy in the format "tax=k:Kingdom,d:Phylum,...".
+
+    Returns:
+    - str: Transformed taxonomy string where "tax=" is stripped, commas are replaced by semicolons,
+           and the prefixes like "k:", "d:", etc. are removed.
+
+    Example:
+    >>> transform_taxonomy("tax=k:Eukaryota,d:TSAR")
+    'Eukaryota;TSAR'
+    '''
+    # Strip "tax="
+    taxonomy = taxonomy.replace('tax=', '')
+
+    # Replace commas with semicolons
+    taxonomy = taxonomy.replace(',', ';')
+
+    # Remove the k:, d:, p:, and so on
+    parts = taxonomy.split(';')
+    transformed_parts = [part.split(':')[1] if ':' in part else part for part in parts]
+
+    return ';'.join(transformed_parts)
+
+def verify_id_names(taxon_file_path, ref_alignment_path):
+    '''
+    Extract and compare sequence IDs from a taxon file and a reference alignment file.
+
+    This function verifies if the sequence IDs from the taxon file match those from the reference alignment.
+    Any mismatches between the two sets of IDs are printed as output.
+
+    Parameters:
+    - taxon_file_path (str): Path to the taxon file containing sequence IDs and their taxonomies.
+    - ref_alignment_path (str): Path to the reference alignment file in FASTA format.
+
+    Returns:
+    - None: The function prints the status of ID verification to the console, but does not return any value.
+
+    Example:
+    >>> verify_id_names("path_to_taxon_file.txt", "path_to_reference_alignment.fasta")
+    '''
+    # Extract the IDs from the taxon file
+    taxon_ids = set()
+    with open(taxon_file_path, 'r') as file:
+        for line in file:
+            taxon_id, _ = line.strip().split("\t")
+            taxon_ids.add(taxon_id)
+
+    # Extract the IDs from the reference alignment
+    ref_ids = set()
+    with open(ref_alignment_path, 'r') as file:
+        for line in file:
+            if line.startswith(">"):
+                ref_id = line.strip().lstrip(">")
+                ref_ids.add(ref_id)
+
+    # Compare the two sets of IDs
+    if taxon_ids == ref_ids:
+        print("The ID names in the taxon file match the ID names in the reference alignment.")
+    else:
+        missing_in_taxon = ref_ids - taxon_ids
+        missing_in_ref = taxon_ids - ref_ids
+
+        if missing_in_taxon:
+            msg = "The following IDs are in the reference alignment but missing in the taxon file:"
+            msg += "\n" + "\n".join(missing_in_taxon)
+            print(msg)
+
+        if missing_in_ref:
+            msg = "The following IDs are in the taxon file but missing in the reference alignment:"
+            msg += "\n" + "\n".join(missing_in_ref)
+            print(msg)
+
+
+def compare_length(taxon_file_path, ref_alignment_path):
+    '''
+    Compare the number of sequence IDs between a taxon file and a reference alignment file.
+
+    This function counts the number of sequence IDs present in both the taxon file and the reference alignment
+    and returns these counts for comparison purposes.
+
+    Parameters:
+    - taxon_file_path (str): Path to the taxon file containing sequence IDs and their taxonomies.
+    - ref_alignment_path (str): Path to the reference alignment file in FASTA format.
+
+    Returns:
+    - tuple of (int, int): A tuple containing the count of sequence IDs in the taxon file as the first element,
+                           and the count of sequences in the reference alignment as the second element.
+
+    Example:
+    >>> compare_length("path_to_taxon_file.txt", "path_to_reference_alignment.fasta")
+    (1500, 1500)
+    '''
+    # Count the IDs from the taxon file
+    num_taxon_ids = 0
+    with open(taxon_file_path, 'r') as file:
+        for line in file:
+            num_taxon_ids += 1
+
+    # Count the IDs from the reference alignment
+    num_ref_seqs = num_seqs(ref_alignment_path)
+
+
+    # Compare the number of sequences/ID names
+    return num_taxon_ids, num_ref_seqs
